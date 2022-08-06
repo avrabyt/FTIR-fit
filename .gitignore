@@ -2,3 +2,4 @@ Data/
 *.csv 
 *.txt
 .DS_Store
+__pycache__
