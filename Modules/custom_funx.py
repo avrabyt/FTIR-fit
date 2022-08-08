@@ -2,6 +2,7 @@ import rampy as rp
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.integrate import trapezoid
+import os
 
 def residual(pars, x, data=None, eps=None): #Function definition
     # unpack parameters, extract .value attribute for each parameter
@@ -163,5 +164,29 @@ def cal_peak(peak1,peak2, peak3, peak4, x_fit):
 # plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 # plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-# def load_files(dir_name):
-
+def load_files(dir_name):
+    '''
+    Load all files from the directory path
+    The dataframe output and column naming is based on the temparature.
+    With index as the x axis or Frequency
+    '''
+    init_temp = 10
+    c = 0
+    all_data = pd.DataFrame()
+    for file in os.listdir(dir_name):
+        filename = file
+        if '_XY' in filename:
+            full_file = os.path.join(dir_name,filename)
+            # print(file_num)
+            data_temp = init_temp+c
+            # print(filename + ' : '+str(data_temp))
+            c += 3 
+            colx = "x_"+str(data_temp)
+            coly = "y_"+str(data_temp)
+            col_nam = [colx , coly]
+            data = pd.read_csv(full_file, delimiter = "\t", names = col_nam)
+            all_data = pd.concat([all_data,data[coly]], axis=1)
+            
+    all_data = pd.concat([data[colx], all_data], axis=1)    
+    all_data = all_data.rename(columns = {colx:'x'})
+    return all_data
