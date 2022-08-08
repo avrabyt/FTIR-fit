@@ -1,6 +1,7 @@
 import rampy as rp
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.integrate import trapezoid
 
 def residual(pars, x, data=None, eps=None): #Function definition
     # unpack parameters, extract .value attribute for each parameter
@@ -103,10 +104,8 @@ def plot_fit(res_df,x_fit):
     '''
     sh = res_df.shape
     cols = res_df.columns
-
-    plt.figure(figsize=(12, 6))  
+    plt.figure(figsize=(10, 6))  
     # plt.style.use('ggplot')
-
     for x in range(0,sh[1]):
         if cols[x]== 'Data':
             print([cols[x]])
@@ -121,17 +120,48 @@ def plot_fit(res_df,x_fit):
     plt.legend(loc="upper left")
     plt.gca().invert_xaxis()
     # plt.title(filename)
-    # ax = plt.gca()
-    # print(fig)
+    plt.rcParams.update({'font.size': 16})
     plt.tight_layout()
     return plt
     # print(plt.style.available)
     
 def plot_res(x_fit,residual):
-    plt.figure(figsize=(12, 6)) 
+    plt.figure(figsize=(10, 6)) 
     plt.plot(x_fit,residual,'k')
     plt.gca().invert_xaxis()
     plt.title("Residuals")
     plt.hlines(y= 0,xmin= 1300, xmax= 1800, color='grey', linestyle ='dashed', linewidth = 1.5)
+    plt.xlabel("Frequency, cm$^{-1}$")
+    plt.ylabel("Residuals")
+    plt.rcParams.update({'font.size': 16})
     plt.tight_layout()
     return plt
+
+def cal_peak(peak1,peak2, peak3, peak4, x_fit):
+    '''
+    Protein to lipid ratio based on the area under the peak
+    '''
+    a_p1 = trapezoid(peak1,x_fit)
+    a_p2 = trapezoid(peak2,x_fit)
+    sum_lipid = a_p1+a_p2
+    a_p3 = trapezoid(peak3,x_fit)
+    a_p4 = trapezoid(peak4,x_fit)
+    sum_protein = a_p3+a_p4
+    ratio = sum_protein/sum_lipid
+
+    return ratio 
+
+# SMALL_SIZE = 8
+# MEDIUM_SIZE = 10
+# BIGGER_SIZE = 12
+
+# plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+# plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+# plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+# plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+# plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+# plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+# plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+# def load_files(dir_name):
+
