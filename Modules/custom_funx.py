@@ -4,6 +4,8 @@ import pandas as pd
 from scipy.integrate import trapezoid
 import os
 import numpy as np
+import lmfit
+import pybroom as br
 
 def residual(pars, x, data=None, eps=None): #Function definition
     # unpack parameters, extract .value attribute for each parameter
@@ -76,12 +78,15 @@ def residual(pars, x, data=None, eps=None): #Function definition
     return (model - data)/eps # with errors, the difference is ponderated
 
 
-def create_residuals_df(res_stack,data):
+def create_residuals_df(res_stack,y_fit):
     '''
-    Create the dataframe ready to plot
-    Input :
-        res_stack : numpy converted to dataframe (nd array)
-        data : the raw data also added to the dataframe (numpy)
+    Creates the dataframe ready to plot
+
+    Parameters
+    -----------
+        res_stack : ND Array
+            N dimensional array with all the peaks stacked together
+        y_fit : 1D Pandas
     output : 
         res_df : A dataframe with columns to plot
     '''
@@ -92,9 +97,8 @@ def create_residuals_df(res_stack,data):
     for k in range(0,nCol[1]):
         if k > 0:
             col_names.append('Peak '+ str(k))
-    res_df.columns = col_names
-    data_df = pd.DataFrame(data, columns = ['Data'])        
-    res_df = pd.concat([data_df, res_df], axis=1)
+    res_df.columns = col_names     
+    res_df = pd.concat([y_fit, res_df], axis=1)
     return res_df
 
 def plot_fit(res_df,x_fit):
@@ -176,7 +180,7 @@ def load_files(dir_name):
     all_data = pd.DataFrame()
     for file in os.listdir(dir_name):
         filename = file
-        if '_XY' in filename:
+        if '_XY' or 'XY' in filename:
             full_file = os.path.join(dir_name,filename)
             # print(file_num)
             data_temp = init_temp+c
@@ -195,42 +199,147 @@ def load_files(dir_name):
 def correct_spectra(data,roi,pol_order = 3):
     '''
     Performs background correction - baseline subtraction and data trimming.
-    Input   - data : as Dataframe
-            - roi : Region of interest as np array -> Usage : roi = np.array([(1347,1365),(1774,1800)])
-            - pol_order : uses polynomial function for baseline correction
-    output  - data_corr_trim : Trimmed data as Dataframe
-            - data_corr : Corrected data, as DataFrame
-            - data_base : Baseline data, as Dataframe
+
+    Parameters
+    -----------
+    data : Dataframe
+        The raw data/spectra obtained from the loaded files
+    roi : np array -> Usage : roi = np.array([(1347,1365),(1774,1800)])
+        The region of interest, used for polynomial fit of the spectra
+    pol_order : Integer
+        Uses polynomial function for baseline correction of the spectra
+        rampy.baseline() module used, refer to Rampy python package
     
+    Returns
+    -----------
+    data_corr_trim : DataFrame
+        Trimmed spectra
+    data_corr : DataFrame
+        Corrected spectra(but not trimmed) hence can be used for comparing with raw spectra 
+    data_base : DataFrame
+        Baseline obtained for each spectra
+
+    This function is later used for plotting and comparasion with raw data.
+    Refer to plot_utils.plot_spectral_corrections()
+
+    Usage
+    ------    
+    trim_data,cor_spectra,bdata = correct_spectra(data,roi,pol_order = 3)
     '''
-    
+    # Get the x axis as nump
     x = data['x'].to_numpy()
+    # Initialize the dataframe to concat later
     data_corr_trim = pd.DataFrame()
     data_base = pd.DataFrame()
     data_corr = pd.DataFrame()
+    # Already merge the x axis except in case of data-trim since length it will alter
     data_corr = pd.concat([data_corr,data['x']], axis = 1)
     data_base = pd.concat([data_base,data['x']], axis = 1)
     for col in data.columns:
         if col != 'x':
             y = data[col].to_numpy()            
             y_corr, y_base = rp.baseline(x,y,roi,'poly',polynomial_order = pol_order)        
+            # Merging to the dataframe
             data_corr = pd.concat([data_corr,pd.DataFrame(y_corr,columns=[col])], axis=1)
             data_base = pd.concat([data_base,pd.DataFrame(y_base,columns=[col])], axis=1)
-
+            # Trimming / Correction 
             x_fit = pd.DataFrame(x[np.where((x > roi[0,0])&(x < roi[1,1]))], columns= ['x'])
             y_fit = pd.DataFrame(y_corr[np.where((x > roi[0,0])&(x < roi[1,1]))],columns=[col])
-            
-            if 'x' in data_corr_trim.columns:
-                data_corr_trim = pd.concat([data_corr_trim,y_fit],axis=1)
-            else:
-                data_corr_trim = pd.concat([data_corr_trim,x_fit], axis = 1)
+            # Add the y_fit to the dataframe
+            data_corr_trim = pd.concat([data_corr_trim,y_fit],axis = 1)
+    # Add the x-axis to the dataframe
+    data_corr_trim = pd.concat([x_fit,data_corr_trim], axis = 1)
     return data_corr_trim, data_corr, data_base
 
 
 def norm_spectra(data_corr_trim,method_type = "intensity"):
+    '''
+    Perform normalization on the trimmed data/spectra.
+
+    Parameters
+    ----------
+    data_corr_trim : DataFrame
+        The corretcted and trimmed dataframe. Refer to correct_spectra(data,roi,pol_order = 3) 
+    method_type : Str
+        Type of method to normalize spectra. Using Rampy package. rp.normalise()
+        Refer to rampy package for more types
+    
+    '''
     data_norm = pd.DataFrame()
     for col_name in data_corr_trim.columns:
         if col_name != 'x':
             y_fit_norm_intensity = pd.DataFrame(rp.normalise(data_corr_trim[col_name],x = data_corr_trim['x'],method = method_type))
-            data_norm = pd.concat([data_norm,y_fit_norm_intensity],axis = 1)       
+            data_norm = pd.concat([data_norm,y_fit_norm_intensity],axis = 1)   
+    data_norm = pd.concat([data_corr_trim['x'],data_norm],axis = 1)            
     return data_norm
+
+def run_multifit(normSpectra,params, algo = 'leastsq', message = True):
+    '''
+    Run fit along the stored spectra simultaneously.
+
+    Parameters
+    -----------
+    normSpectra : DataFrame
+        The normalized spectra which will be used for running the lmfit
+    params : lmfit.Parameters
+        Requires to be initialized as a script
+    algo : Str
+        Algorithim which lmfit will use to fit 
+    message : Boolean
+        If True, a message will be printed on the progress
+    
+    Return
+    ----------
+    df_stats : DataFrame
+        Consisiting of the lmfit report statistics, such as Chi Square, nev etc
+    df_variables : DataFrame
+        All the fitting variables , row wise accesible for each spectra, using loc argument 
+    df_residuals : DataFrames
+        Residuals are stored as columns for each spectra
+    '''
+    # Initialize storing DataFrames
+    df_stats = pd.DataFrame()
+    df_variables = pd.DataFrame()
+    df_residual = pd.DataFrame()
+    df_ready_to_plot = pd.DataFrame()
+    df_residual = pd.concat([df_residual,normSpectra['x']],axis = 1) 
+
+    for cols in normSpectra:  
+        if cols!='x':
+            
+            # Assigining x and y axis to work for fits
+            x_fit = normSpectra['x']
+            y_fit = normSpectra[cols]
+            
+            # Running individual fit
+            result = lmfit.minimize(residual, params, method = algo, args=(x_fit,y_fit))
+            
+            ##----- IMPORTANT -------###
+            # IT Changes based on the total no of peaks/components
+            sum_peak, peak1,peak2,peak3,peak4,peak5,peak6, peak7 = residual(result.params,x_fit)
+            res_stack = np.column_stack((sum_peak,peak1,peak2,peak3,peak4,peak5,peak6,peak7))
+            # print(res_stack)
+            # Calling custom function to create dataframe ready-to-plot
+            res_df = create_residuals_df(res_stack,y_fit)
+            
+            # len_res_df = len(res_df)
+            # res_df.index = [cols]*len_res_df # Adding index for unique ID
+            # print(len(res_df.columns))
+            
+            stat_glance = br.glance(result)
+            stat_glance.index = [cols]
+
+            dt = br.tidy(result)
+            nl = len(dt)
+            dt.index = [cols]*nl # Adding index for unique ID
+
+            df_ready_to_plot = pd.concat([df_ready_to_plot,res_df], axis = 0)
+            
+            df_variables = pd.concat([df_variables,dt])
+            df_stats = pd.concat([df_stats,stat_glance])
+            df_residual = pd.concat([df_residual,pd.DataFrame(result.residual,columns=[cols])],axis = 1) 
+            # print(len(df_ready_to_plot.columns))
+            if message is True:
+                print(cols +"..completed ...")
+
+    return df_stats, df_variables, df_residual, df_ready_to_plot 

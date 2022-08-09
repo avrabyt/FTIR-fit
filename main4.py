@@ -1,44 +1,63 @@
+#--- Dependencies ---#
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 from Modules.custom_funx import *
+from Modules.plot_utils import *
+import lmfit
 
-
-# Loading all the data
-
-dir_name = 'Data/'
+#--- Loading data ---#
+dir_name = 'Data/Stroma/qh03/'
 data = load_files(dir_name) 
 # print(data)
 roi = np.array([(1347,1365),(1774,1800)])
-trim_data,cor_spectra,bdata = correct_spectra(data,roi,pol_order = 3)
-norm_spectra = norm_spectra(trim_data)
+trim_data,cor_spectra, bdata = correct_spectra(data,roi,pol_order = 3)
+normSpectra = norm_spectra(trim_data)
 
-# print(norm_spectra.columns)
+#--- Plotting ---#
+# ax1 = plot_spectral_corrections(data,cor_spectra,bdata,roi)
+# ax2 = plot_norm_signals(normSpectra)
+# plt.show()
 
-plt.figure(figsize=(16,12))
-for i,cols in enumerate(norm_spectra.columns):
-    if i == 0 : 
-        i +=1      
-    plt.subplot(5,5,i)
-    plt.plot(data['x'],bdata[cols], label='Baseline')
-    plt.plot(data['x'],cor_spectra[cols],'r-.' ,label='Corrected')
-    plt.plot(data['x'],data[cols],'k:' ,label='Original')
-    plt.xlim(roi[0,0],roi[1,1])
-    plt.ylim(-0.1,0.4)
-    plt.title(cols,loc = 'right', fontweight = 'bold')
-    plt.hlines(y= 0,xmin= roi[0,0], xmax= roi[1,1], color='grey', linestyle ='dashed', linewidth = 1.5)
-    plt.gca().invert_xaxis()
-    plt.gca().sharex = True
-    plt.gca().sharey = True
-    plt.gca().set_xlabel = 'Frequency, cm$^{-1}$'
-plt.figlegend(['Baseline', 'Corrected', 'Original'])  
-plt.tight_layout()
-# plt.supxlabel('Frequency, cm$^{-1}$')
-# plt.supylabel('absorbance (OD)')
-plt.show()
+#--- Fit parameters ---#
+params = lmfit.Parameters()
+algo = 'leastsq'
+#               (Name,  Value,   Vary,   Min,     Max,       Expr)
+params.add_many(
+                # Protein
+                ('a1',   0.1,    True,    0,      0.2,     None), #Amplitude
+                ('f1',   1740,   True,   1735,    1755,    None), #position
+                ('l1',   5,      True,    1,      50,     None), # FWHM
 
+                ('a2',   0.04,    True,     0,      0.2,    None),   #Amplitude
+                ('f2',   1725,   True,   1720,     1745,     None),
+                ('l2',    5,    True,    1,       50,    None), 
+                # Lipid
+                ('a3',   0.9,    True,    0,       1,        None),  # Amplitude
+                ('f3',   1654,   True,    1640,   1660,     None),
+                ('l3',   20,     True,     10,     40,      None),
 
+                ('a4',   0.9,    True,      0,      1,      None), # Amplitude
+                ('f4',   1636,   True,   1630,    1650,     None),
+                ('l4',   20,     True,     10,     80,      None), 
+                
+                ####
+                ('a5',   0.3,    True,    0.0,     1,       None), # Amplitude
+                ('f5',   1547,   True,    1592,    1505,    None),
+                ('l5',   40,     True,     0,      100,     None),
+
+                ('a6',   0.7,    True,     0.0,       1,    None), # Amplitude
+                ('f6',   1453,   True,    1425,    1470,    None),
+                ('l6',   20,     True,     0,      50,      None),   
+                
+                ('a7',   0.07,    True,     0.0,    1,      None), # Amplitude
+                ('f7',   1378,   True,    1350,    1380,    None),
+                ('l7',   10,     True,     0,      10,      None),   
+                        
+               )
+#--- Run Multi fit ---#               
+df_stats, df_variables, df_residual, df_plot = run_multifit(normSpectra,params, algo = 'leastsq', message = True)
 
     
 
