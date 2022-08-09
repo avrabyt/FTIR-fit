@@ -1,9 +1,5 @@
-import lmfit
-import rampy as rp #Charles' libraries and functions
-
 import numpy as np
 import pandas as pd
-
 import matplotlib.pyplot as plt
 import plotly.express as px
 from Modules.custom_funx import *
@@ -11,34 +7,41 @@ from Modules.custom_funx import *
 
 # Loading all the data
 
-dir_name = 'Data/Thylakoids/qg27/'
-data = load_files(dir_name) # The output comes as Dataframe
-# print(data) # To visualize all the data
-# print(data.columns) # To check the columns
-
-# To plot
-# fig = px.line(data_frame=data, x=data.index, y=data['y_10'])
-#  fig.show()
-
-data_array = data.to_numpy() # converting all the datas to numpy 2D array for easy data handing and manipulation
-x = data.index # Making the x axis from the dataframe indices 
-
-# Visualize by potting
-# plt.figure()
-# plt.plot(x, data_array)
-# plt.show()
-
-# Choosing the region of interest
+dir_name = 'Data/'
+data = load_files(dir_name) 
+# print(data)
 roi = np.array([(1347,1365),(1774,1800)])
-roi[1,1]
+trim_data,cor_spectra,bdata = correct_spectra(data,roi,pol_order = 3)
+norm_spectra = norm_spectra(trim_data)
 
-y = data_array[:,9]
+# print(norm_spectra.columns)
 
-# Baseline Fitting and trimming the data
-# For Base line correction for each array
-# Base line correction
-y_corr, y_base = rp.baseline(x,y,roi,'poly',polynomial_order=3)
-# print(len(data_array))
+plt.figure(figsize=(16,12))
+for i,cols in enumerate(norm_spectra.columns):
+    if i == 0 : 
+        i +=1      
+    plt.subplot(5,5,i)
+    plt.plot(data['x'],bdata[cols], label='Baseline')
+    plt.plot(data['x'],cor_spectra[cols],'r-.' ,label='Corrected')
+    plt.plot(data['x'],data[cols],'k:' ,label='Original')
+    plt.xlim(roi[0,0],roi[1,1])
+    plt.ylim(-0.1,0.4)
+    plt.title(cols,loc = 'right', fontweight = 'bold')
+    plt.hlines(y= 0,xmin= roi[0,0], xmax= roi[1,1], color='grey', linestyle ='dashed', linewidth = 1.5)
+    plt.gca().invert_xaxis()
+    plt.gca().sharex = True
+    plt.gca().sharey = True
+    plt.gca().set_xlabel = 'Frequency, cm$^{-1}$'
+plt.figlegend(['Baseline', 'Corrected', 'Original'])  
+plt.tight_layout()
+# plt.supxlabel('Frequency, cm$^{-1}$')
+# plt.supylabel('absorbance (OD)')
+plt.show()
+
+
+
+    
+
 
 
     

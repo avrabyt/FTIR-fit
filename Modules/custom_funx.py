@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.integrate import trapezoid
 import os
+import numpy as np
 
 def residual(pars, x, data=None, eps=None): #Function definition
     # unpack parameters, extract .value attribute for each parameter
@@ -190,3 +191,46 @@ def load_files(dir_name):
     all_data = pd.concat([data[colx], all_data], axis=1)    
     all_data = all_data.rename(columns = {colx:'x'})
     return all_data
+
+def correct_spectra(data,roi,pol_order = 3):
+    '''
+    Performs background correction - baseline subtraction and data trimming.
+    Input   - data : as Dataframe
+            - roi : Region of interest as np array -> Usage : roi = np.array([(1347,1365),(1774,1800)])
+            - pol_order : uses polynomial function for baseline correction
+    output  - data_corr_trim : Trimmed data as Dataframe
+            - data_corr : Corrected data, as DataFrame
+            - data_base : Baseline data, as Dataframe
+    
+    '''
+    
+    x = data['x'].to_numpy()
+    data_corr_trim = pd.DataFrame()
+    data_base = pd.DataFrame()
+    data_corr = pd.DataFrame()
+    data_corr = pd.concat([data_corr,data['x']], axis = 1)
+    data_base = pd.concat([data_base,data['x']], axis = 1)
+    for col in data.columns:
+        if col != 'x':
+            y = data[col].to_numpy()            
+            y_corr, y_base = rp.baseline(x,y,roi,'poly',polynomial_order = pol_order)        
+            data_corr = pd.concat([data_corr,pd.DataFrame(y_corr,columns=[col])], axis=1)
+            data_base = pd.concat([data_base,pd.DataFrame(y_base,columns=[col])], axis=1)
+
+            x_fit = pd.DataFrame(x[np.where((x > roi[0,0])&(x < roi[1,1]))], columns= ['x'])
+            y_fit = pd.DataFrame(y_corr[np.where((x > roi[0,0])&(x < roi[1,1]))],columns=[col])
+            
+            if 'x' in data_corr_trim.columns:
+                data_corr_trim = pd.concat([data_corr_trim,y_fit],axis=1)
+            else:
+                data_corr_trim = pd.concat([data_corr_trim,x_fit], axis = 1)
+    return data_corr_trim, data_corr, data_base
+
+
+def norm_spectra(data_corr_trim,method_type = "intensity"):
+    data_norm = pd.DataFrame()
+    for col_name in data_corr_trim.columns:
+        if col_name != 'x':
+            y_fit_norm_intensity = pd.DataFrame(rp.normalise(data_corr_trim[col_name],x = data_corr_trim['x'],method = method_type))
+            data_norm = pd.concat([data_norm,y_fit_norm_intensity],axis = 1)       
+    return data_norm
