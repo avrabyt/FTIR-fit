@@ -153,7 +153,6 @@ def load_files(dir_name):
 def correct_spectra(data,roi,pol_order = 3):
     '''
     Performs background correction - baseline subtraction and data trimming.
-
     Parameters
     -----------
     data : Dataframe
@@ -238,7 +237,7 @@ def run_multifit(normSpectra,params, algo = 'leastsq', message = True):
     params : lmfit.Parameters
         Requires to be initialized as a script
     algo : Str
-        Algorithim which lmfit will use to fit 
+        By default - "leastsq" method is used,Algorithim which lmfit will use to fit 
     message : Boolean
         If True, a message will be printed on the progress
     
@@ -296,6 +295,10 @@ def run_multifit(normSpectra,params, algo = 'leastsq', message = True):
             df_residual = pd.concat([df_residual,pd.DataFrame(result.residual,columns=[cols])],axis = 1) 
     
             if message is True:
-                print(cols +"..completed ...")
+                print("Spectra(Y) at temp." + cols +"..completed with stats:"
+                + "[Chisqr value]:"+str(stat_glance['chisqr'])+" ,[reduced_Chi] value: "+ str(stat_glance['redchi'])
+                + " ,[Number of evaluation]:"+str(stat_glance['num_func_eval'])
+                + ",LMFIT message"+str(stat_glance['message'])+str(stat_glance['success'])
+                )
 
     return df_stats, df_variables, df_residual, df_ready_to_plot 
