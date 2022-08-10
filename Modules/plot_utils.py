@@ -54,3 +54,82 @@ def plot_norm_signals(normSpectra):
     return plt
 
 
+def plot_fitres(ready_to_plot_df,x_fit,ratio={}):
+    '''
+    Creates plot of the peaks from the residual dataframe created
+
+    Parameters
+    -----------
+    ready_to_plot_df : DataFrame
+        Consits of the results obtained from the multirunfit
+    x_fit : Pandas.series
+        X axis 
+    ratio : Dictionary
+        ratio of protein/lipid calculated 
+    Returns
+    -----------
+    plt : plot
+
+    '''
+    # Check the column naming and append based on it
+    if isinstance(ready_to_plot_df.columns[0], int):
+        ready_to_plot_df = ready_to_plot_df.add_prefix('Peak_')
+    # Finding the unique indices 
+    ui = ready_to_plot_df.index.unique()
+
+    plt.figure('Fit',figsize=(16,14))
+    for i,sp in enumerate(ui):
+        sel_df = ready_to_plot_df.loc[sp]
+        sel_df.index = x_fit
+        plt.subplot(6,5,i+1)
+        plt.plot(sel_df)
+        if len(ratio) == 0:
+            plt.title(sp)
+        else:
+            plt.title(sp+" P/L ratio: "+ str(round(ratio[sp],3)))
+        plt.gca().get_lines()[0].set_color("tab:blue")
+        plt.gca().get_lines()[1].set_color("tab:orange")
+        plt.gca().get_lines()[0].set_linestyle('-.')
+        plt.gca().get_lines()[0].set_linewidth(3.5)
+        plt.gca().get_lines()[1].set_linewidth(3.5)
+        plt.gca().invert_xaxis()
+    
+        col_names = ['Data', 'Fit']
+        for dd,_ in enumerate(ready_to_plot_df.columns):
+            if dd > 1:
+                n = dd-1
+                col_names.append('Peak_' + str(n))
+    plt.figlegend(col_names, loc='lower right', ncol = len(col_names)) 
+    plt.tight_layout()
+    return plt
+
+    
+def plot_residuals(df_residual,df_stats):
+
+    plt.figure('Residuals',figsize=(16,14))
+    for i,col in enumerate(df_residual.columns):
+        if col!='x' :
+            plt.subplot(6,5,i)
+            plt.plot(df_residual['x'],df_residual[col],'k')
+            plt.gca().invert_xaxis()
+            chi = round(df_stats.loc[col]['chisqr'],3)
+            plt.title(col+' Chisqr:'+str(chi))
+            plt.hlines(y= 0,xmin= 1300, xmax= 1800, color='grey', linestyle ='dashed', linewidth = 1.5)
+            # plt.xlabel("Frequency, cm$^{-1}$")
+            # plt.ylabel("Residuals")
+            # plt.rcParams.update({'font.size': 16})
+        plt.figlegend(['Residuals'], framealpha=0.5, loc='lower right') 
+        plt.tight_layout()
+    return plt
+
+# SMALL_SIZE = 8
+# MEDIUM_SIZE = 10
+# BIGGER_SIZE = 12
+
+# plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+# plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+# plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+# plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+# plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+# plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+# plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title

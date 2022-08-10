@@ -1,14 +1,15 @@
 #--- Dependencies ---#
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import plotly.express as px
+# import matplotlib.pyplot as plt
+# import plotly.express as px
 from Modules.custom_funx import *
 from Modules.plot_utils import *
 import lmfit
 
 #--- Loading data ---#
 dir_name = 'Data/Stroma/qh03/'
+# dir_name = 'Data/test/'
 data = load_files(dir_name) 
 # print(data)
 roi = np.array([(1347,1365),(1774,1800)])
@@ -59,8 +60,11 @@ params.add_many(
 #--- Run Multi fit ---#               
 df_stats, df_variables, df_residual, df_plot = run_multifit(normSpectra,params, algo = 'leastsq', message = True)
 
-    
-
+ratio = protein_to_lipid(df_plot,normSpectra['x'])
+# print(ratio)
+plot_fitres(df_plot,normSpectra['x'],ratio=ratio)  
+plot_residuals(df_residual,df_stats)
+plt.show()
 
 
     

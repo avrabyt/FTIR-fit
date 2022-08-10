@@ -78,96 +78,50 @@ def residual(pars, x, data=None, eps=None): #Function definition
     return (model - data)/eps # with errors, the difference is ponderated
 
 
-def create_residuals_df(res_stack,y_fit):
+
+
+
+def protein_to_lipid(df,x_fit):
     '''
-    Creates the dataframe ready to plot
+    Implementation completely based on experimental work.
+    Protein to lipid ratio based on the area under the peak.
+    Taking into accound of the 1st 4 fitted peaks. 
+    The first two is coming from lipids and next two from proteins.
 
     Parameters
     -----------
-        res_stack : ND Array
-            N dimensional array with all the peaks stacked together
-        y_fit : 1D Pandas
-    output : 
-        res_df : A dataframe with columns to plot
-    '''
-    # Create dataframe
-    res_df = pd.DataFrame(res_stack)
-    col_names = ['Fit']
-    nCol = res_df.shape
-    for k in range(0,nCol[1]):
-        if k > 0:
-            col_names.append('Peak '+ str(k))
-    res_df.columns = col_names     
-    res_df = pd.concat([y_fit, res_df], axis=1)
-    return res_df
+    df - DataFrame
+        With different fitted peaks. First two columns are data and fitted peaks.
+    x_fit - DataFrame series
+        x axis used in trapezoid calculation
 
-def plot_fit(res_df,x_fit):
-    '''
-    Creates plot of the peaks from the residual dataframe created
-    Input 
-        res_df : Dataframe
-        x_fit 
-    '''
-    sh = res_df.shape
-    cols = res_df.columns
-    plt.figure(figsize=(10, 6))  
-    # plt.style.use('ggplot')
-    for x in range(0,sh[1]):
-        if cols[x]== 'Data':
-            print([cols[x]])
-            plt.plot(x_fit,res_df[cols[x]],'k:',label = cols[x], linewidth = 3.5)
-        elif cols[x]== 'Fit':
-            plt.plot(x_fit,res_df[cols[x]],'r', markerfacecolor="None",label = cols[x])
-        else:   
-            plt.fill_between(x_fit,res_df[cols[x]],alpha=0.7,label =cols[x])
+    Returns
+    -----------
+    ratio : Dictionary
+        Keys are the experiment temparature and values are the Protein to Lipid ratio    
 
-    plt.xlabel("Frequency, cm$^{-1}$")
-    plt.ylabel("Normalized absorbance (OD)")
-    plt.legend(loc="upper left")
-    plt.gca().invert_xaxis()
-    # plt.title(filename)
-    plt.rcParams.update({'font.size': 16})
-    plt.tight_layout()
-    return plt
-    # print(plt.style.available)
-    
-def plot_res(x_fit,residual):
-    plt.figure(figsize=(10, 6)) 
-    plt.plot(x_fit,residual,'k')
-    plt.gca().invert_xaxis()
-    plt.title("Residuals")
-    plt.hlines(y= 0,xmin= 1300, xmax= 1800, color='grey', linestyle ='dashed', linewidth = 1.5)
-    plt.xlabel("Frequency, cm$^{-1}$")
-    plt.ylabel("Residuals")
-    plt.rcParams.update({'font.size': 16})
-    plt.tight_layout()
-    return plt
+    '''
+    if isinstance(df.columns[0], int):
+            new_df = df.add_prefix('Peak_')
 
-def cal_peak(peak1,peak2, peak3, peak4, x_fit):
-    '''
-    Protein to lipid ratio based on the area under the peak
-    '''
-    a_p1 = trapezoid(peak1,x_fit)
-    a_p2 = trapezoid(peak2,x_fit)
-    sum_lipid = a_p1+a_p2
-    a_p3 = trapezoid(peak3,x_fit)
-    a_p4 = trapezoid(peak4,x_fit)
-    sum_protein = a_p3+a_p4
-    ratio = sum_protein/sum_lipid
+    ratio_l =[]
+    ui = new_df.index.unique()
+    for i,sp in enumerate(ui):
+        sel_df = new_df.loc[sp]
+        trap_1 = trapezoid(sel_df['Peak_2'],x_fit)
+        trap_2 = trapezoid(sel_df['Peak_3'],x_fit) 
+        lipid_trap = trap_1+trap_2
+        trap_3 = trapezoid(sel_df['Peak_4'],x_fit)
+        trap_4 = trapezoid(sel_df['Peak_5'],x_fit) 
+        protein_trap = trap_3 + trap_4
+        r = protein_trap/lipid_trap
+        ratio_l.append(r)
+
+    ratio = dict(zip(ui, ratio_l))
 
     return ratio 
 
-# SMALL_SIZE = 8
-# MEDIUM_SIZE = 10
-# BIGGER_SIZE = 12
 
-# plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
-# plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
-# plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
-# plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-# plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-# plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
-# plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 def load_files(dir_name):
     '''
@@ -296,6 +250,10 @@ def run_multifit(normSpectra,params, algo = 'leastsq', message = True):
         All the fitting variables , row wise accesible for each spectra, using loc argument 
     df_residuals : DataFrames
         Residuals are stored as columns for each spectra
+    df_ready_to_plot : DataFrames
+        Fitted Peaks from the objective function.
+        The first two columns are Data and Model/Fit (Sum of Peaks)
+        Rest columns are fitted peaks with number of components    
     '''
     # Initialize storing DataFrames
     df_stats = pd.DataFrame()
@@ -315,16 +273,13 @@ def run_multifit(normSpectra,params, algo = 'leastsq', message = True):
             result = lmfit.minimize(residual, params, method = algo, args=(x_fit,y_fit))
             
             ##----- IMPORTANT -------###
-            # IT Changes based on the total no of peaks/components
+            # It Changes based on the total no of peaks/components
             sum_peak, peak1,peak2,peak3,peak4,peak5,peak6, peak7 = residual(result.params,x_fit)
-            res_stack = np.column_stack((sum_peak,peak1,peak2,peak3,peak4,peak5,peak6,peak7))
-            # print(res_stack)
-            # Calling custom function to create dataframe ready-to-plot
-            res_df = create_residuals_df(res_stack,y_fit)
-            
-            # len_res_df = len(res_df)
-            # res_df.index = [cols]*len_res_df # Adding index for unique ID
-            # print(len(res_df.columns))
+            res_stack = np.column_stack((np.array(y_fit),sum_peak,peak1,peak2,peak3,peak4,peak5,peak6,peak7))
+            # Convert to DataFrame
+            res_df = pd.DataFrame(res_stack)  
+            len_res_df = len(res_df)
+            res_df.index = [cols]*len_res_df # Adding index for unique ID
             
             stat_glance = br.glance(result)
             stat_glance.index = [cols]
@@ -333,12 +288,13 @@ def run_multifit(normSpectra,params, algo = 'leastsq', message = True):
             nl = len(dt)
             dt.index = [cols]*nl # Adding index for unique ID
 
-            df_ready_to_plot = pd.concat([df_ready_to_plot,res_df], axis = 0)
             
+            df_ready_to_plot = pd.concat([df_ready_to_plot,res_df], axis = 0)
+            # df_ready_to_plot = df_ready_to_plot.add_prefix('Peak_')
             df_variables = pd.concat([df_variables,dt])
             df_stats = pd.concat([df_stats,stat_glance])
             df_residual = pd.concat([df_residual,pd.DataFrame(result.residual,columns=[cols])],axis = 1) 
-            # print(len(df_ready_to_plot.columns))
+    
             if message is True:
                 print(cols +"..completed ...")
 
