@@ -1,5 +1,12 @@
 Fitting FTIR data with multi lorentzian / Gaussian functions. 
+The project is at it's early state for personal use-cases and data analysis.
 
+## Intsallation
+
+```console
+pip install ftirfit==0.0.1
+
+```
 ## Resources
 
 1. [Rampy](https://github.com/charlesll/rampy)
