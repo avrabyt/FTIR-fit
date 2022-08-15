@@ -3,3 +3,4 @@ Data/
 *.txt
 .DS_Store
 __pycache__
+test_script.ipynb
