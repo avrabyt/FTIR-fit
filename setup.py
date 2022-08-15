@@ -17,7 +17,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],                                      # Information to filter the project on PyPi website
     python_requires='>=3.6',                # Minimum version requirement of the package
-    py_modules=["quicksample"],             # Name of the python package
     package_dir={'':'ftirfit'},             # Directory of the source code of the package
     install_requires=["rampy",
                       "matplotlib",
