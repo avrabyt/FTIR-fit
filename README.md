@@ -4,7 +4,7 @@ The project is at it's early state for personal use-cases and data analysis.
 ## Intsallation
 
 ```console
-pip install ftirfit==0.0.1
+pip install ftirfit==0.0.2
 
 ```
 ## Resources
