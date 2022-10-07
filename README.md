@@ -7,6 +7,7 @@ The project is at it's early state for personal use-cases and data analysis.
 1. Fork / clone this repository 
 2. Install the dependencies - `Rampy`
 3. The functions `custom_funx.py` & `plot_utils.py` from the folder `ftirfit/` is necessary to run analysis
+4. Notebook in the `Example`folder will help for a quick-start
 
 
 ## Alternative Intsallation (Not recommended)
